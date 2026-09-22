@@ -33,6 +33,12 @@ public class ChatCompletionChunk {
         private String role;
         private String content;
 
+        @JsonProperty("reasoning")
+        private String reasoning;
+
+        @JsonProperty("reasoning_content")
+        private String reasoningContent;
+
         @JsonProperty("tool_calls")
         private List<ToolCall> toolCalls;
 
@@ -41,6 +47,12 @@ public class ChatCompletionChunk {
 
         public String getContent() { return content; }
         public void setContent(String content) { this.content = content; }
+
+        public String getReasoning() { return reasoning; }
+        public void setReasoning(String reasoning) { this.reasoning = reasoning; }
+
+        public String getReasoningContent() { return reasoningContent; }
+        public void setReasoningContent(String reasoningContent) { this.reasoningContent = reasoningContent; }
 
         public List<ToolCall> getToolCalls() { return toolCalls; }
         public void setToolCalls(List<ToolCall> toolCalls) { this.toolCalls = toolCalls; }

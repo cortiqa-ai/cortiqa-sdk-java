@@ -12,6 +12,12 @@ public class ChatMessage {
     private String content;
     private String name;
 
+    @JsonProperty("reasoning")
+    private String reasoning;
+
+    @JsonProperty("reasoning_content")
+    private String reasoningContent;
+
     @JsonProperty("tool_calls")
     private List<ToolCall> toolCalls;
 
@@ -49,6 +55,19 @@ public class ChatMessage {
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
+
+    public String getReasoning() { return reasoning; }
+    public void setReasoning(String reasoning) { this.reasoning = reasoning; }
+
+    public String getReasoningContent() { return reasoningContent; }
+    public void setReasoningContent(String reasoningContent) { this.reasoningContent = reasoningContent; }
+
+    public String getThought() {
+        if (reasoning != null && !reasoning.isEmpty()) {
+            return reasoning;
+        }
+        return reasoningContent;
+    }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

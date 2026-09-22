@@ -24,6 +24,16 @@ public class ChatCompletionResponse {
         return "";
     }
 
+    /**
+     * Helper to retrieve the first choice message reasoning / thought directly.
+     */
+    public String getReasoning() {
+        if (choices != null && !choices.isEmpty() && choices.get(0).getMessage() != null) {
+            return choices.get(0).getMessage().getThought();
+        }
+        return null;
+    }
+
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 

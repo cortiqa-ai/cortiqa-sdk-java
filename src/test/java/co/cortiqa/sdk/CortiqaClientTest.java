@@ -87,4 +87,56 @@ public class CortiqaClientTest {
         assertEquals("Hello from Cortiqa Java SDK!", response.getContent());
         assertEquals(16, response.getUsage().getTotalTokens());
     }
+
+    @Test
+    public void testDefaultModelConfiguration() {
+        CortiqaClient defaultClient = CortiqaClient.builder()
+                .apiKey("sk-test")
+                .build();
+        assertEquals("openai/gpt-oss-120b", defaultClient.getConfig().getDefaultModel());
+
+        CortiqaClient customClient = CortiqaClient.builder()
+                .apiKey("sk-test")
+                .defaultModel("custom/model-v1")
+                .build();
+        assertEquals("custom/model-v1", customClient.getConfig().getDefaultModel());
+    }
+
+    @Test
+    public void testReasoningDeserialization() throws Exception {
+        String jsonWithReasoning = "{\n" +
+                "  \"id\": \"chatcmpl-reasoning-test\",\n" +
+                "  \"object\": \"chat.completion\",\n" +
+                "  \"created\": 1726900000,\n" +
+                "  \"model\": \"openai/gpt-oss-120b\",\n" +
+                "  \"choices\": [\n" +
+                "    {\n" +
+                "      \"index\": 0,\n" +
+                "      \"message\": {\n" +
+                "        \"role\": \"assistant\",\n" +
+                "        \"content\": \"Answer is 42\",\n" +
+                "        \"reasoning\": \"Step 1: Multiply 6 by 7.\"\n" +
+                "      },\n" +
+                "      \"finish_reason\": \"stop\"\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}";
+
+        ObjectMapper mapper = new ObjectMapper();
+        ChatCompletionResponse response = mapper.readValue(jsonWithReasoning, ChatCompletionResponse.class);
+        assertEquals("Answer is 42", response.getContent());
+        assertEquals("Step 1: Multiply 6 by 7.", response.getReasoning());
+        assertEquals("Step 1: Multiply 6 by 7.", response.getChoices().get(0).getMessage().getThought());
+    }
+
+    @Test
+    public void testBadRequestAndParamError() {
+        co.cortiqa.sdk.exception.BadRequestException ex = new co.cortiqa.sdk.exception.BadRequestException(
+                "Invalid value", "{}", "temperature", "invalid_param", "invalid_request_error"
+        );
+        assertEquals(400, ex.getStatusCode());
+        assertEquals("temperature", ex.getParam());
+        assertEquals("invalid_param", ex.getCode());
+        assertTrue(ex.getMessage().contains("temperature"));
+    }
 }

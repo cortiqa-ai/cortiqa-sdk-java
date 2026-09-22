@@ -153,39 +153,86 @@ public class CortiqaClient {
         }
     }
 
+    /**
+     * One-liner convenience helper to prompt a model and get string response directly.
+     */
+    public String prompt(String prompt) {
+        return prompt(prompt, null);
+    }
+
+    public String prompt(String prompt, String system) {
+        co.cortiqa.sdk.models.ChatCompletionRequest.Builder builder = co.cortiqa.sdk.models.ChatCompletionRequest.builder();
+        if (system != null && !system.isEmpty()) {
+            builder.addMessage(co.cortiqa.sdk.models.ChatMessage.system(system));
+        }
+        builder.addMessage(co.cortiqa.sdk.models.ChatMessage.user(prompt));
+        var response = chat.create(builder.build());
+        return response.getContent();
+    }
+
     private void handleError(int statusCode, String body) {
         String msg = body;
+        String param = null;
+        String code = null;
+        String errorType = null;
+
         try {
             var node = mapper.readTree(body);
-            if (node.has("error")) {
+            if (node.has("detail")) {
+                var detailNode = node.get("detail");
+                if (detailNode.isArray() && detailNode.size() > 0) {
+                    var first = detailNode.get(0);
+                    if (first.has("loc") && first.get("loc").isArray() && first.get("loc").size() > 0) {
+                        var locArr = first.get("loc");
+                        param = locArr.get(locArr.size() - 1).asText();
+                    }
+                    if (first.has("type")) code = first.get("type").asText();
+                    if (first.has("msg")) {
+                        msg = param != null ? "Parameter '" + param + "': " + first.get("msg").asText() : first.get("msg").asText();
+                    }
+                } else if (detailNode.isTextual()) {
+                    msg = detailNode.asText();
+                }
+            } else if (node.has("error")) {
                 var errNode = node.get("error");
-                if (errNode.isTextual()) msg = errNode.asText();
-                else if (errNode.has("message")) msg = errNode.get("message").asText();
+                if (errNode.isTextual()) {
+                    msg = errNode.asText();
+                } else if (errNode.isObject()) {
+                    if (errNode.has("message")) msg = errNode.get("message").asText();
+                    if (errNode.has("param")) param = errNode.get("param").asText();
+                    if (errNode.has("code")) code = errNode.get("code").asText();
+                    if (errNode.has("type")) errorType = errNode.get("type").asText();
+                }
             } else if (node.has("message")) {
                 msg = node.get("message").asText();
             }
         } catch (Exception ignored) {}
 
         switch (statusCode) {
+            case 400:
+                throw new BadRequestException(msg, body, param, code, errorType);
             case 401:
                 throw new AuthenticationException(statusCode, msg, body);
             case 403:
                 throw new PermissionDeniedException(statusCode, msg, body);
             case 404:
                 throw new NotFoundException(statusCode, msg, body);
+            case 422:
+                throw new UnprocessableEntityException(msg, body, param, code, errorType);
             case 429:
                 throw new RateLimitException(statusCode, msg, body);
             default:
                 if (statusCode >= 500) {
                     throw new InternalServerException(statusCode, msg, body);
                 }
-                throw new APIException(statusCode, msg, body);
+                throw new APIException(statusCode, msg, body, param, code, errorType);
         }
     }
 
     public static class Builder {
         private String apiKey;
         private String baseURL;
+        private String defaultModel = CortiqaConfig.DEFAULT_MODEL;
         private Duration timeout;
         private int maxRetries = CortiqaConfig.DEFAULT_MAX_RETRIES;
         private HttpClient httpClient;
@@ -197,6 +244,11 @@ public class CortiqaClient {
 
         public Builder baseURL(String baseURL) {
             this.baseURL = baseURL;
+            return this;
+        }
+
+        public Builder defaultModel(String defaultModel) {
+            this.defaultModel = defaultModel;
             return this;
         }
 
@@ -221,7 +273,7 @@ public class CortiqaClient {
                 throw new AuthenticationException(401, "No API key provided. Pass `apiKey` or set CORTIQA_API_KEY environment variable.", null);
             }
             String url = this.baseURL != null ? this.baseURL : System.getenv("CORTIQA_BASE_URL");
-            CortiqaConfig config = new CortiqaConfig(key, url, this.timeout, this.maxRetries, this.httpClient);
+            CortiqaConfig config = new CortiqaConfig(key, url, this.defaultModel, this.timeout, this.maxRetries, this.httpClient);
             return new CortiqaClient(config);
         }
     }

@@ -18,6 +18,14 @@ public class ChatService {
         return completions;
     }
 
+    public ChatCompletionResponse create(ChatCompletionRequest request) {
+        return completions.create(request);
+    }
+
+    public StreamResponse stream(ChatCompletionRequest request) {
+        return completions.stream(request);
+    }
+
     public static class Completions {
         private final CortiqaClient client;
 
@@ -25,13 +33,28 @@ public class ChatService {
             this.client = client;
         }
 
+        private void normalize(ChatCompletionRequest request) {
+            if (request.getModel() == null || request.getModel().trim().isEmpty()) {
+                request.setModel(client.getConfig().getDefaultModel());
+            }
+            if (request.getTools() != null) {
+                for (var tool : request.getTools()) {
+                    if (tool.getType() == null || tool.getType().isEmpty()) {
+                        tool.setType("function");
+                    }
+                }
+            }
+        }
+
         public ChatCompletionResponse create(ChatCompletionRequest request) {
             request.setStream(false);
+            normalize(request);
             return client.sendPost("/v1/chat/completions", request, ChatCompletionResponse.class);
         }
 
         public StreamResponse stream(ChatCompletionRequest request) {
             request.setStream(true);
+            normalize(request);
             return client.sendPostStream("/v1/chat/completions", request);
         }
     }
